@@ -20,10 +20,11 @@ public class Booking {
     @DBRef
     private User user;
 
+    @DBRef
+    private Show show;
 
-    private String showId;
-
-    private List<String> seatIds;
+    @DBRef
+    private List<Seat> seats;
 
 
     private PaymentType payment;

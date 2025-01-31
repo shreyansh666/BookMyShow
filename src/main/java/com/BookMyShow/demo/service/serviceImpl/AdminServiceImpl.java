@@ -36,9 +36,17 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Transactional
-    public Theater addTheater(String cityId, String name,String address) {
+    public Theater addTheater(String cityId, String name, String address) {
         City city = cityRepository.findById(cityId)
                 .orElseThrow(() -> new RuntimeException("City not found"));
+
+        boolean exists = city.getTheaters().stream()
+                .anyMatch(theater -> theater.getName().equalsIgnoreCase(name) && theater.getAddress().equalsIgnoreCase(address)
+                );
+
+        if (exists) {
+            throw new RuntimeException("Already Exists");
+        }
 
         Theater theater = Theater.builder()
                 .name(name)
@@ -47,12 +55,12 @@ public class AdminServiceImpl implements AdminService {
                 .build();
 
         Theater savedTheater = theaterRepository.save(theater);
-
         city.getTheaters().add(savedTheater);
         cityRepository.save(city);
 
         return savedTheater;
     }
+
 
     @Transactional
     public Screen addScreen(String theaterId, String name) {
