@@ -2,11 +2,15 @@ package com.BookMyShow.demo.service.serviceImpl;
 
 import com.BookMyShow.demo.dto.EmailRequest;
 import com.BookMyShow.demo.dto.PasswordChangeRequest;
+import com.BookMyShow.demo.entities.City;
+import com.BookMyShow.demo.entities.Movie;
+import com.BookMyShow.demo.entities.Show;
 import com.BookMyShow.demo.entities.User;
 import com.BookMyShow.demo.enums.NotificationType;
 import com.BookMyShow.demo.enums.UserRole;
 import com.BookMyShow.demo.exception.ResourceNotFoundException;
 import com.BookMyShow.demo.exception.UnauthorizedException;
+import com.BookMyShow.demo.repository.CityRepository;
 import com.BookMyShow.demo.repository.UserRepository;
 import com.BookMyShow.demo.security.services.UserDetailsImpl;
 import com.BookMyShow.demo.service.UserService;
@@ -21,9 +25,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
+import java.util.stream.Collectors;
 
 
 @Service
@@ -36,6 +41,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private final UserRepository userRepo;
+
+    @Autowired
+    private final CityRepository cityRepository;
 
     @Autowired
     private final EmailServiceImpl emailService;
@@ -172,6 +180,20 @@ public class UserServiceImpl implements UserService {
     @Override
     public User findUser(String userId){
         return userRepo.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+
+    public List<Movie> getMoviesInCity(String cityId) {
+
+        City city = cityRepository.findById(cityId)
+                .orElseThrow(() ->  new RuntimeException("City not found"));
+
+        return city.getTheaters().stream()
+                .flatMap(theater -> theater.getScreens().stream())
+                .flatMap(screen -> screen.getShows().stream())
+                .map(Show::getMovie)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
 
