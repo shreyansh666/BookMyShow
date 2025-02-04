@@ -136,7 +136,7 @@ public class AdminController {
         try {
             List<Theater> theaters = adminService.getTheaters(cityId);
             return CommonUtil.createBuildResponse(theaters, HttpStatus.OK);
-        } catch (Exception e) {
+        } catch (ResourceNotFoundException e) {
             return CommonUtil.createErrorResponseMessage(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
