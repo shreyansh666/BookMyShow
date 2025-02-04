@@ -1,0 +1,7 @@
+package com.BookMyShow.demo.exception;
+
+public class ResourceNotFoundException extends Throwable {
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+}
