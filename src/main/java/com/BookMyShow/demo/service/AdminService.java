@@ -21,7 +21,8 @@ public interface AdminService {
 
 
     Theater addTheater(TheaterRequest request) throws ResourceNotFoundException;
-    List<Theater> getTheaters(String cityId);
+    List<Theater> getTheaters(String cityId) throws ResourceNotFoundException;
+//    List<Theater> getTheatersByName(String name) throws ResourceNotFoundException;
     void deleteTheater(String theaterId);
 
 

@@ -10,7 +10,10 @@ import com.BookMyShow.demo.enums.SeatType;
 import com.BookMyShow.demo.exception.ResourceNotFoundException;
 import com.BookMyShow.demo.repository.*;
 import com.BookMyShow.demo.service.AdminService;
+import com.mongodb.client.ClientSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,12 +25,26 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
+    @Autowired
     private final CityRepository cityRepository;
+
+    @Autowired
     private final TheaterRepository theaterRepository;
+
+    @Autowired
     private final ScreenRepository screenRepository;
+
+    @Autowired
     private final ShowRepository showRepository;
+
+    @Autowired
     private final SeatRepository seatRepository;
+
+    @Autowired
     private final MovieRepository movieRepository;
+//
+//    @Autowired
+//    private MongoTemplate mongoTemplate;
 
     @Transactional
     public City addCity(String cityName) {
@@ -36,34 +53,41 @@ public class AdminServiceImpl implements AdminService {
                 .theaters(new ArrayList<>())
                 .build();
 
-        return cityRepository.save(city);
+        cityRepository.save(city);
+
+//       if(true) throw new RuntimeException("Hi Exception");
+       return city;
     }
 
-//    @Transactional
-//    public Theater addTheater(String cityId, String name, String address) {
-//        City city = cityRepository.findById(cityId)
-//                .orElseThrow(() -> new RuntimeException("City not found"));
+
+
+//    public City addCity(String cityName) {
+//        ClientSession session = mongoTemplate.getMongoDbFactory().getSession();
+//        try {
+//            session.startTransaction();
+//            City city = City.builder()
+//                    .name(cityName)
+//                    .theaters(new ArrayList<>())
+//                    .build();
 //
-//        boolean exists = city.getTheaters().stream()
-//                .anyMatch(theater -> theater.getName().equalsIgnoreCase(name) && theater.getAddress().equalsIgnoreCase(address)
-//                );
+//            mongoTemplate.save(city);
 //
-//        if (exists) {
-//            throw new RuntimeException("Already Exists");
+//            // Simulate an error
+//            if (true) {
+//                throw new RuntimeException("Hi Exception");
+//            }
+//
+//            session.commitTransaction();
+//            return city;
+//        } catch (RuntimeException ex) {
+//            session.abortTransaction();
+//            throw ex;
+//        } finally {
+//            session.close();
 //        }
-//
-//        Theater theater = Theater.builder()
-//                .name(name)
-//                .address(address)
-//                .screens(new ArrayList<>())
-//                .build();
-//
-//        Theater savedTheater = theaterRepository.save(theater);
-//        city.getTheaters().add(savedTheater);
-//        cityRepository.save(city);
-//
-//        return savedTheater;
 //    }
+
+
 
     @Transactional
     public Theater addTheater(TheaterRequest request) throws ResourceNotFoundException {
@@ -115,6 +139,7 @@ public class AdminServiceImpl implements AdminService {
 
         Screen screen = Screen.builder()
                 .name(name)
+//                .theaterId(theaterId)
                 .type(type)
                 .shows(new ArrayList<>())
                 .build();
@@ -242,13 +267,23 @@ public class AdminServiceImpl implements AdminService {
     }
 
 
-    public List<Theater> getTheaters(String cityId) {
-        return theaterRepository.findByCityId(cityId);
+    public List<Theater> getTheaters(String cityId) throws ResourceNotFoundException {
+        Optional<City> city  = cityRepository.findById(cityId);
+        if(city.isPresent()) return city.get().getTheaters();
+        throw new ResourceNotFoundException("city with this id does not exist");
     }
+
+//    @Override
+//    public List<Theater> getTheatersByName(String name) throws ResourceNotFoundException {
+//        return theaterRepository.fin
+//        return List.of();
+//    }
 
     public List<Show> getShows(String screenId) {
         return showRepository.findByScreenId(screenId);
     }
+
+
 
     public List<City> getCities() {
         return cityRepository.findAll();
@@ -299,7 +334,8 @@ public class AdminServiceImpl implements AdminService {
 
 
 
-    public void deleteTheater(String theaterId) {
+    public void deleteTheater(String theaterId)
+    {
         Theater theater = theaterRepository.findById(theaterId)
                 .orElseThrow(() -> new RuntimeException("Theater not found with ID: " + theaterId));
 
