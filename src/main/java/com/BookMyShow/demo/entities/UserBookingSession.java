@@ -39,7 +39,7 @@ public class UserBookingSession {
     private Show show;
 
     @DBRef(lazy = true)
-    private List<Seat> seats;
+    private List<ShowSeat> seats;
 
 
     private SessionStatus status;

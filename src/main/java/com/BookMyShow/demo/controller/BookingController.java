@@ -1,9 +1,6 @@
 package com.BookMyShow.demo.controller;
 
-import com.BookMyShow.demo.entities.Booking;
-import com.BookMyShow.demo.entities.Seat;
-import com.BookMyShow.demo.entities.User;
-import com.BookMyShow.demo.entities.UserBookingSession;
+import com.BookMyShow.demo.entities.*;
 import com.BookMyShow.demo.enums.NotificationType;
 import com.BookMyShow.demo.enums.PaymentType;
 import com.BookMyShow.demo.security.services.UserDetailsImpl;
@@ -36,11 +33,9 @@ public class BookingController {
     @Autowired
     private final UserService userService;
 
-
-
     @GetMapping("/available-seats")
-    public ResponseEntity<List<Seat>> getAvailableSeats(@RequestParam String showId) {
-        List<Seat> seats = bookingService.getAvailableSeats(showId);
+    public ResponseEntity<List<ShowSeat>> getAvailableSeats(@RequestParam String showId) {
+        List<ShowSeat> seats = bookingService.getAvailableSeats(showId);
         return ResponseEntity.ok(seats);
     }
 
@@ -55,7 +50,6 @@ public class BookingController {
             return ResponseEntity.badRequest().body("Error creating session: " + e.getMessage());
         }
     }
-
 
     @PostMapping("/book")
     public ResponseEntity<String> completeBooking(@RequestParam String sessionId,
@@ -89,6 +83,8 @@ public class BookingController {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
+
+
 
     @GetMapping("/getAllBooking")
     public ResponseEntity<?> getBookingsByUser() {

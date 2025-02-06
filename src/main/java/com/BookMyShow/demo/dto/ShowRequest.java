@@ -15,5 +15,11 @@ public class ShowRequest {
     private String movieId;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
-    private ShowSeatConfigRequest seatConfig;
+    private ScreenSeatTemplateConfigRequest seatConfig;
 }
+
+
+
+
+//screen pe ek show hai
+//        scfren me show ki list hai waha abhi add ho rha hofa

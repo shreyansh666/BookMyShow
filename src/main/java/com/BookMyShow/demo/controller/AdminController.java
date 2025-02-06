@@ -1,5 +1,6 @@
 package com.BookMyShow.demo.controller;
 
+import com.BookMyShow.demo.dto.ScreenSeatTemplateConfigRequest;
 import com.BookMyShow.demo.dto.ShowRequest;
 import com.BookMyShow.demo.dto.TheaterRequest;
 import com.BookMyShow.demo.entities.*;
@@ -8,6 +9,7 @@ import com.BookMyShow.demo.exception.ResourceNotFoundException;
 import com.BookMyShow.demo.service.AdminService;
 import com.BookMyShow.demo.util.CommonUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +21,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminController {
 
+
+    @Autowired
     private final AdminService adminService;
 
     @PostMapping("/addCity")
@@ -41,10 +45,14 @@ public class AdminController {
         }
     }
 
+
     @PostMapping("/addScreen")
-    public ResponseEntity<?> addScreen(@RequestParam String theaterId, @RequestParam String name, @RequestParam ScreenType type) {
+    public ResponseEntity<?> addScreen(@RequestParam String theaterId,
+                                       @RequestParam String name,
+                                       @RequestParam ScreenType type,
+                                       @RequestBody ScreenSeatTemplateConfigRequest config) {
         try {
-            Screen screen = adminService.addScreen(theaterId, name, type);
+            Screen screen = adminService.addScreen(theaterId, name, type, config);
             return CommonUtil.createBuildResponse(screen, HttpStatus.OK);
         } catch (Exception e) {
             return CommonUtil.createErrorResponseMessage(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -160,5 +168,4 @@ public class AdminController {
             return CommonUtil.createErrorResponseMessage(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
-
 }

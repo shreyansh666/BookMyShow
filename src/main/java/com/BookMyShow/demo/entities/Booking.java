@@ -24,7 +24,7 @@ public class Booking {
     private Show show;
 
     @DBRef
-    private List<Seat> seats;
+    private List<ShowSeat> seats;
 
 
     private PaymentType payment;

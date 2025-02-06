@@ -1,12 +1,12 @@
 package com.BookMyShow.demo.dto;
-import lombok.*;
 
 
-
+import lombok.Builder;
+import lombok.Data;
 
 @Data
 @Builder
-public class ShowSeatConfigRequest {
+public class ScreenSeatTemplateConfigRequest {
 
     private int regularCount;
     private double regularPrice;

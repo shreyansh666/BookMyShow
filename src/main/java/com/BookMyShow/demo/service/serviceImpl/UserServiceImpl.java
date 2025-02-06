@@ -11,6 +11,7 @@ import com.BookMyShow.demo.enums.UserRole;
 import com.BookMyShow.demo.exception.ResourceNotFoundException;
 import com.BookMyShow.demo.exception.UnauthorizedException;
 import com.BookMyShow.demo.repository.CityRepository;
+import com.BookMyShow.demo.repository.ShowRepository;
 import com.BookMyShow.demo.repository.UserRepository;
 import com.BookMyShow.demo.security.services.UserDetailsImpl;
 import com.BookMyShow.demo.service.UserService;
@@ -25,9 +26,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -41,6 +40,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private final UserRepository userRepo;
+
+    @Autowired
+    private final ShowRepository showRepository;
 
     @Autowired
     private final CityRepository cityRepository;
@@ -183,18 +185,33 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    public List<Movie> getMoviesInCity(String cityId) {
+//    public List<Movie> getMoviesInCity(String cityId) {
+//
+//        City city = cityRepository.findById(cityId)
+//                .orElseThrow(() ->  new RuntimeException("City not found"));
+//
+//        return city.getTheaters().stream()
+//                .flatMap(theater -> theater.getScreens().stream())
+//                .flatMap(screen -> screen.getShows().stream())
+//                .map(Show::getMovie)
+//                .distinct()
+//                .collect(Collectors.toList());
+//    }
 
+    public List<Movie> getMoviesInCity(String cityId) {
         City city = cityRepository.findById(cityId)
                 .orElseThrow(() ->  new RuntimeException("City not found"));
 
-        return city.getTheaters().stream()
-                .flatMap(theater -> theater.getScreens().stream())
-                .flatMap(screen -> screen.getShows().stream())
-                .map(Show::getMovie)
-                .distinct()
-                .collect(Collectors.toList());
+        Set<Movie> movies = new HashSet<>();
+        city.getTheaters().forEach(theater -> {
+            theater.getScreens().forEach(screen -> {
+                List<Show> shows = showRepository.findByScreenId(screen.getId());
+                shows.forEach(show -> movies.add(show.getMovie()));
+            });
+        });
+        return new ArrayList<>(movies);
     }
+
 
 
 }

@@ -1,19 +1,23 @@
 package com.BookMyShow.demo.service.serviceImpl;
 
 import com.BookMyShow.demo.dto.ShowRequest;
+import com.BookMyShow.demo.dto.ScreenSeatTemplateConfigRequest;
 import com.BookMyShow.demo.dto.TheaterRequest;
-import com.BookMyShow.demo.dto.ShowSeatConfigRequest;
 import com.BookMyShow.demo.entities.*;
 import com.BookMyShow.demo.enums.ScreenType;
 import com.BookMyShow.demo.enums.SeatStatus;
 import com.BookMyShow.demo.enums.SeatType;
 import com.BookMyShow.demo.exception.ResourceNotFoundException;
-import com.BookMyShow.demo.repository.*;
+import com.BookMyShow.demo.repository.CityRepository;
+import com.BookMyShow.demo.repository.MovieRepository;
+import com.BookMyShow.demo.repository.ScreenRepository;
+import com.BookMyShow.demo.repository.ShowRepository;
+import com.BookMyShow.demo.repository.ShowSeatRepository;
+import com.BookMyShow.demo.repository.SeatTemplateRepository;
+import com.BookMyShow.demo.repository.TheaterRepository;
 import com.BookMyShow.demo.service.AdminService;
-import com.mongodb.client.ClientSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,14 +41,16 @@ public class AdminServiceImpl implements AdminService {
     @Autowired
     private final ShowRepository showRepository;
 
+    // Using ShowSeatRepository for persisting ShowSeat entities.
     @Autowired
-    private final SeatRepository seatRepository;
+    private final ShowSeatRepository showSeatRepository;
 
     @Autowired
     private final MovieRepository movieRepository;
-//
-//    @Autowired
-//    private MongoTemplate mongoTemplate;
+
+    // Repository for SeatTemplate so that orphaned templates can be deleted.
+    @Autowired
+    private final SeatTemplateRepository seatTemplateRepository;
 
     @Transactional
     public City addCity(String cityName) {
@@ -54,68 +60,32 @@ public class AdminServiceImpl implements AdminService {
                 .build();
 
         cityRepository.save(city);
-
-//       if(true) throw new RuntimeException("Hi Exception");
-       return city;
+        return city;
     }
-
-
-
-//    public City addCity(String cityName) {
-//        ClientSession session = mongoTemplate.getMongoDbFactory().getSession();
-//        try {
-//            session.startTransaction();
-//            City city = City.builder()
-//                    .name(cityName)
-//                    .theaters(new ArrayList<>())
-//                    .build();
-//
-//            mongoTemplate.save(city);
-//
-//            // Simulate an error
-//            if (true) {
-//                throw new RuntimeException("Hi Exception");
-//            }
-//
-//            session.commitTransaction();
-//            return city;
-//        } catch (RuntimeException ex) {
-//            session.abortTransaction();
-//            throw ex;
-//        } finally {
-//            session.close();
-//        }
-//    }
-
-
 
     @Transactional
     public Theater addTheater(TheaterRequest request) throws ResourceNotFoundException {
-
         if (request.getName() == null || request.getCity() == null || request.getCity().trim().isEmpty() ||
                 request.getState() == null || request.getState().trim().isEmpty() ||
                 request.getPinCode() == null || request.getPinCode().trim().isEmpty() ||
                 request.getLocality() == null || request.getLocality().trim().isEmpty()) {
-            throw new IllegalArgumentException("Data Not accurate");
+            throw new IllegalArgumentException("Data not accurate");
         }
 
-
-        String address = String.format("%s, %s, %s - %s", request.getLocality(), request.getCity(), request.getState(), request.getPinCode());
-
+        String address = String.format("%s, %s, %s - %s",
+                request.getLocality(), request.getCity(), request.getState(), request.getPinCode());
 
         Optional<City> city = cityRepository.findByName(request.getCity());
-        if(!city.isPresent()) throw new ResourceNotFoundException("city not present");
+        if (!city.isPresent()) throw new ResourceNotFoundException("City not present");
 
         boolean exists = city.get().getTheaters().stream()
                 .anyMatch(theater ->
                         theater.getName().equalsIgnoreCase(request.getName())
                                 && theater.getAddress().equalsIgnoreCase(address)
                 );
-
         if (exists) {
             throw new RuntimeException("Theater already exists in this city.");
         }
-
 
         Theater theater = Theater.builder()
                 .name(request.getName())
@@ -130,27 +100,47 @@ public class AdminServiceImpl implements AdminService {
         return savedTheater;
     }
 
-
-
     @Transactional
-    public Screen addScreen(String theaterId, String name, ScreenType type) {
+    public Screen addScreen(String theaterId, String name, ScreenType type, ScreenSeatTemplateConfigRequest config) {
         Theater theater = theaterRepository.findById(theaterId)
                 .orElseThrow(() -> new RuntimeException("Theater not found"));
 
+        // Create SeatTemplate objects from the provided configuration
+        List<SeatTemplate> seatTemplates = createSeatTemplates(config);
+
         Screen screen = Screen.builder()
                 .name(name)
-//                .theaterId(theaterId)
                 .type(type)
-                .shows(new ArrayList<>())
+                .seats(seatTemplates)
                 .build();
 
         Screen savedScreen = screenRepository.save(screen);
-
         theater.getScreens().add(savedScreen);
         theaterRepository.save(theater);
 
         return savedScreen;
     }
+
+    private List<SeatTemplate> createSeatTemplates(ScreenSeatTemplateConfigRequest config) {
+        List<SeatTemplate> seatTemplates = new ArrayList<>();
+        addSeatTemplatesOfType(seatTemplates, SeatType.REGULAR, config.getRegularCount(), config.getRegularPrice());
+        addSeatTemplatesOfType(seatTemplates, SeatType.GOLD, config.getVipCount(), config.getVipPrice());
+        addSeatTemplatesOfType(seatTemplates, SeatType.PLATINUM, config.getPremiumCount(), config.getPremiumPrice());
+        return seatTemplates;
+    }
+
+    private void addSeatTemplatesOfType(List<SeatTemplate> seatTemplates, SeatType type, int count, double defaultPrice) {
+        for (int i = 1; i <= count; i++) {
+            String seatNumber = String.format("%s-%d", type.name().charAt(0), i);
+            SeatTemplate template = SeatTemplate.builder()
+                    .seatNumber(seatNumber)
+                    .seatType(type)
+                    .defaultPrice(defaultPrice)
+                    .build();
+            seatTemplates.add(template);
+        }
+    }
+
 
     @Transactional
     public Show addShow(String screenId, ShowRequest request) {
@@ -160,71 +150,44 @@ public class AdminServiceImpl implements AdminService {
         Movie movie = movieRepository.findById(request.getMovieId())
                 .orElseThrow(() -> new RuntimeException("Movie not found"));
 
-
-        List<Seat> seats = createSeats(request.getSeatConfig());
-        List<Seat> savedSeats = seatRepository.saveAll(seats);
-
+        // Create the Show entity
         Show show = Show.builder()
                 .movie(movie)
                 .ScreenId(screenId)
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .seats(savedSeats)
                 .build();
-
         Show savedShow = showRepository.save(show);
 
-
-        savedSeats.forEach(seat -> {
-            seat.setShowId(savedShow.getId());
-            seatRepository.save(seat);
-        });
-
-        screen.getShows().add(savedShow);
-        screenRepository.save(screen);
+        // Create ShowSeat entries based on the seat templates of the screen.
+        List<ShowSeat> showSeats = createShowSeats(screen, request.getSeatConfig(), savedShow.getId());
+        showSeatRepository.saveAll(showSeats);
 
         return savedShow;
     }
 
-    private List<Seat> createSeats(ShowSeatConfigRequest config) {
-        List<Seat> seats = new ArrayList<>();
+    private List<ShowSeat> createShowSeats(Screen screen, ScreenSeatTemplateConfigRequest config, String showId) {
+        List<ShowSeat> showSeats = new ArrayList<>();
+        for (SeatTemplate seatTemplate : screen.getSeats()) {
+            double price = seatTemplate.getDefaultPrice(); // default price from template
+            // Adjust price based on seat type if provided in configuration
+            if (seatTemplate.getSeatType() == SeatType.REGULAR && config.getRegularPrice() > 0) {
+                price = config.getRegularPrice();
+            } else if (seatTemplate.getSeatType() == SeatType.GOLD && config.getVipPrice() > 0) {
+                price = config.getVipPrice();
+            } else if (seatTemplate.getSeatType() == SeatType.PLATINUM && config.getPremiumPrice() > 0) {
+                price = config.getPremiumPrice();
+            }
 
-        addSeatsOfType(seats, SeatType.REGULAR, config.getRegularCount(),
-                config.getRegularPrice());
-
-        addSeatsOfType(seats, SeatType.GOLD, config.getVipCount(),
-                config.getVipPrice());
-
-
-        addSeatsOfType(seats, SeatType.PLATINUM, config.getPremiumCount(),
-                config.getPremiumPrice());
-
-
-
-        return seats;
-    }
-
-    private void addSeatsOfType(List<Seat> seats, SeatType type, int count,
-                                double price) {
-        for (int i = 1; i <= count; i++) {
-            String seatNumber = String.format("%s-%d", type.name().charAt(0), i);
-            Seat seat = Seat.builder()
-                    .seatNumber(seatNumber)
-                    .seatType(type)
+            ShowSeat showSeat = ShowSeat.builder()
+                    .seatTemplate(seatTemplate)
                     .price(price)
                     .status(SeatStatus.AVAILABLE)
-                    .version(0)
+                    .showId(showId)
                     .build();
-            seats.add(seat);
+            showSeats.add(showSeat);
         }
-    }
-
-
-    public void deleteShow(String showId) {
-        if (!showRepository.existsById(showId)) {
-            throw new RuntimeException("Show not found with ID: " + showId);
-        }
-        showRepository.deleteById(showId);
+        return showSeats;
     }
 
     @Transactional
@@ -236,26 +199,9 @@ public class AdminServiceImpl implements AdminService {
         existingShow.setMovie(movie);
         existingShow.setStartTime(request.getStartTime());
         existingShow.setEndTime(request.getEndTime());
-
-
-        List<Seat> oldSeats = existingShow.getSeats();
-        if (oldSeats != null && !oldSeats.isEmpty()) {
-            seatRepository.deleteAll(oldSeats);
-        }
-
-        List<Seat> newSeats = createSeats(request.getSeatConfig());
-        List<Seat> savedNewSeats = seatRepository.saveAll(newSeats);
-
-//        savedNewSeats.forEach(seat -> {
-//           seat.setShowId(existingShow.getId());
-//            seatRepository.save(seat);
-//        });
-
-        existingShow.setSeats(savedNewSeats);
-
+        // Optionally, update ShowSeat entries if needed
         return showRepository.save(existingShow);
     }
-
 
     @Transactional
     public Screen updateScreen(String screenId, String name, ScreenType type) {
@@ -266,56 +212,53 @@ public class AdminServiceImpl implements AdminService {
         return screenRepository.save(screen);
     }
 
-
     public List<Theater> getTheaters(String cityId) throws ResourceNotFoundException {
-        Optional<City> city  = cityRepository.findById(cityId);
-        if(city.isPresent()) return city.get().getTheaters();
-        throw new ResourceNotFoundException("city with this id does not exist");
+        Optional<City> city = cityRepository.findById(cityId);
+        if (city.isPresent()) return city.get().getTheaters();
+        throw new ResourceNotFoundException("City with this id does not exist");
     }
-
-//    @Override
-//    public List<Theater> getTheatersByName(String name) throws ResourceNotFoundException {
-//        return theaterRepository.fin
-//        return List.of();
-//    }
 
     public List<Show> getShows(String screenId) {
         return showRepository.findByScreenId(screenId);
     }
-
-
 
     public List<City> getCities() {
         return cityRepository.findAll();
     }
 
     public List<Screen> getScreens(String theaterId) {
-        return screenRepository.findByTheaterId(theaterId);
+        Theater theater = theaterRepository.findById(theaterId)
+                .orElseThrow(() -> new RuntimeException("Theater not found with ID: " + theaterId));
+        return theater.getScreens();
     }
-
 
 
 
     public void deleteCity(String cityId) {
         City city = cityRepository.findById(cityId)
-                    .orElseThrow(() -> new RuntimeException("City not found with ID: " + cityId));
+                .orElseThrow(() -> new RuntimeException("City not found with ID: " + cityId));
 
         List<Theater> theaters = city.getTheaters();
-
         for (Theater theater : theaters) {
-            List<Screen> screens = screenRepository.findByTheaterId(theater.getId());
+            List<Screen> screens = theater.getScreens();
             for (Screen screen : screens) {
+                // Delete ShowSeats for each Show in this Screen
                 List<Show> shows = showRepository.findByScreenId(screen.getId());
                 for (Show show : shows) {
-                    seatRepository.deleteByShowId(show.getId());
+                    showSeatRepository.deleteByShowId(show.getId());
                 }
                 showRepository.deleteByScreenId(screen.getId());
-             }
-               screenRepository.deleteByTheaterId(theater.getId());
+                // Delete the SeatTemplates associated with the Screen
+                if (screen.getSeats() != null && !screen.getSeats().isEmpty()) {
+                    seatTemplateRepository.deleteAll(screen.getSeats());
+                }
+                screenRepository.delete(screen);
             }
-            theaterRepository.deleteAll(theaters);
-            cityRepository.deleteById(cityId);
+//            screenRepository.deleteByTheaterId(theater.getId());
         }
+        theaterRepository.deleteAll(theaters);
+        cityRepository.deleteById(cityId);
+    }
 
 
     public void deleteScreen(String screenId) {
@@ -323,37 +266,46 @@ public class AdminServiceImpl implements AdminService {
                 .orElseThrow(() -> new RuntimeException("Screen not found with ID: " + screenId));
 
         List<Show> shows = showRepository.findByScreenId(screenId);
-
         for (Show show : shows) {
-            seatRepository.deleteByShowId(show.getId());
+            showSeatRepository.deleteByShowId(show.getId());
         }
-
         showRepository.deleteByScreenId(screenId);
+        // Delete associated seat templates for this screen
+        if (screen.getSeats() != null && !screen.getSeats().isEmpty()) {
+            seatTemplateRepository.deleteAll(screen.getSeats());
+        }
         screenRepository.deleteById(screenId);
     }
 
-
-
-    public void deleteTheater(String theaterId)
-    {
-        Theater theater = theaterRepository.findById(theaterId)
-                .orElseThrow(() -> new RuntimeException("Theater not found with ID: " + theaterId));
-
-        List<Screen> screens = screenRepository.findByTheaterId(theaterId);
-
-        for (Screen screen : screens) {
-            List<Show> shows = showRepository.findByScreenId(screen.getId());
-            for (Show show : shows) {
-                seatRepository.deleteByShowId(show.getId());
-            }
-            showRepository.deleteByScreenId(screen.getId());
+    @Transactional
+    public void deleteShow(String showId) {
+        if (!showRepository.existsById(showId)) {
+            throw new RuntimeException("Show not found with ID: " + showId);
         }
-
-        screenRepository.deleteByTheaterId(theaterId);
-        theaterRepository.deleteById(theaterId);
+        showSeatRepository.deleteByShowId(showId);
+        showRepository.deleteById(showId);
     }
 
 
 
+    public void deleteTheater(String theaterId) {
+        Theater theater = theaterRepository.findById(theaterId)
+                .orElseThrow(() -> new RuntimeException("Theater not found with ID: " + theaterId));
 
+        List<Screen> screens = theater.getScreens();
+        for (Screen screen : screens) {
+            List<Show> shows = showRepository.findByScreenId(screen.getId());
+            for (Show show : shows) {
+                showSeatRepository.deleteByShowId(show.getId());
+            }
+            showRepository.deleteByScreenId(screen.getId());
+
+            if (screen.getSeats() != null && !screen.getSeats().isEmpty()) {
+                seatTemplateRepository.deleteAll(screen.getSeats());
+            }
+            screenRepository.delete(screen);
+        }
+//        screenRepository.deleteByTheaterId(theaterId);
+        theaterRepository.deleteById(theaterId);
+    }
 }
