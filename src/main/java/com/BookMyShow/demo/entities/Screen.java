@@ -18,10 +18,14 @@ public class Screen {
     @Id
     private String id;
     private String name;
-    private String theaterId;
     private ScreenType type;
 
+
+
     @DBRef
-    private List<Show> shows;
+    private List<SeatTemplate> seats;
+
+
+
 }
 

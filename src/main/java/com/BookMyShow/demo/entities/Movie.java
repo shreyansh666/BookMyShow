@@ -19,6 +19,7 @@ public class Movie  {
 
     @Id
     private String id;
+
     private String title;
     private String genre;
     private int duration;

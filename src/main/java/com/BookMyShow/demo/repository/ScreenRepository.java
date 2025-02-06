@@ -11,10 +11,10 @@ import java.util.Optional;
 
 @Repository
 public interface ScreenRepository extends MongoRepository<Screen, String> {
-    List<Screen> findByTheaterId(String theaterId);
+//    List<Screen> findByTheaterId(String theaterId);
 
-    @Query("{'theaterId': ?0, 'name': ?1}")
-    Optional<Screen> findByTheaterIdAndName(String theaterId, String name);
-    void deleteByTheaterId(String theaterId);
+//    @Query("{'theaterId': ?0, 'name': ?1}")
+//    Optional<Screen> findByTheaterIdAndName(String theaterId, String name);
+//    void deleteByTheaterId(String theaterId);
 
 }

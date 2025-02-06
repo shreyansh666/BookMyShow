@@ -1,15 +1,25 @@
 package com.BookMyShow.demo.service.serviceImpl;
 
-import com.BookMyShow.demo.entities.*;
-import com.BookMyShow.demo.enums.*;
-import com.BookMyShow.demo.repository.*;
+import com.BookMyShow.demo.entities.Booking;
+import com.BookMyShow.demo.entities.Show;
+import com.BookMyShow.demo.entities.ShowSeat;
+import com.BookMyShow.demo.entities.User;
+import com.BookMyShow.demo.entities.UserBookingSession;
+import com.BookMyShow.demo.enums.BookingStatus;
+import com.BookMyShow.demo.enums.PaymentType;
+import com.BookMyShow.demo.enums.SeatStatus;
+import com.BookMyShow.demo.enums.SessionStatus;
+import com.BookMyShow.demo.repository.BookingRepository;
+import com.BookMyShow.demo.repository.ShowRepository;
+import com.BookMyShow.demo.repository.ShowSeatRepository;
+import com.BookMyShow.demo.repository.UserBookingSessionRepository;
+import com.BookMyShow.demo.repository.UserRepository;
 import com.BookMyShow.demo.service.BookingService;
 import com.BookMyShow.demo.service.ObserverManager;
 import com.BookMyShow.demo.strategy.NotificationStrategy.strategyImpl.NotificationManager;
 import com.BookMyShow.demo.strategy.PaymentStrategy.strategyImpl.PaymentManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,8 +42,9 @@ public class BookingServiceImpl implements BookingService {
     @Autowired
     private final ShowRepository showRepository;
 
+
     @Autowired
-    private final SeatRepository seatRepository;
+    private final ShowSeatRepository showSeatRepository;
 
     @Autowired
     private final PaymentManager paymentManager;
@@ -48,16 +59,12 @@ public class BookingServiceImpl implements BookingService {
     private final UserBookingSessionRepository sessionRepository;
 
 
-    public List<Seat> getAvailableSeats(String showId) {
-        Optional<Show> showOpt = showRepository.findById(showId);
-        if (showOpt.isEmpty()) throw new RuntimeException("Show not found");
-
-        Show show = showOpt.get();
-
-        if(show.getSeats() == null)  throw new RuntimeException("Show not found");
-
-        return show.getSeats()
-                .stream()
+    public List<ShowSeat> getAvailableSeats(String showId) {
+        List<ShowSeat> seats = showSeatRepository.findByShowId(showId);
+        if (seats == null || seats.isEmpty()) {
+            throw new RuntimeException("Show not found or no seats available");
+        }
+        return seats.stream()
                 .filter(seat -> SeatStatus.AVAILABLE.equals(seat.getStatus()))
                 .collect(Collectors.toList());
     }
@@ -65,49 +72,34 @@ public class BookingServiceImpl implements BookingService {
     public void notifyUser(String showId, User user) {
         observerManager.addObserver(showId, user);
     }
-//
-//    private void checkValidity(String showId, User user, List<Seat> seats) {
-//        List<Seat> availableSeats = getAvailableSeats(showId);
-//
-//        if (availableSeats.isEmpty()) {
-//            notifyUser(showId, user);
-//            throw new RuntimeException("No seats available. You will be notified if seats become available.");
-//        }
-//
-//        for (Seat seat : seats) {
-//            if (seat.getStatus() != SeatStatus.AVAILABLE) {
-//                throw new RuntimeException("Seat already booked");
-//            }
-//        }
-//    }
+
 
     @Transactional
     @Override
     public UserBookingSession createBookingSession(String userId, String showId, List<String> seatIds) throws Exception {
         Optional<User> userOpt = userRepository.findById(userId);
         Optional<Show> showOpt = showRepository.findById(showId);
-        if (userOpt.isEmpty() || showOpt.isEmpty()) throw new RuntimeException("Invalid booking details");
-
+        if (userOpt.isEmpty() || showOpt.isEmpty()) {
+            throw new RuntimeException("Invalid booking details");
+        }
         User user = userOpt.get();
         Show show = showOpt.get();
 
 
-        List<Seat> seats = seatRepository.findAllById(seatIds);
+        List<ShowSeat> seats = showSeatRepository.findAllById(seatIds);
         if (seats.size() != seatIds.size()) {
             throw new RuntimeException("Some seats not found.");
         }
-
-        for (Seat seat : seats) {
-            if (seat.getStatus() != SeatStatus.AVAILABLE) {
+        for (ShowSeat seat : seats) {
+            if (!SeatStatus.AVAILABLE.equals(seat.getStatus())) {
                 throw new RuntimeException("Seat " + seat.getId() + " is not available.");
             }
         }
 
         seats.forEach(seat -> {
             seat.setStatus(SeatStatus.TEMPERORY_UNAVAILABLE);
-            seatRepository.save(seat);
+            showSeatRepository.save(seat);
         });
-
 
         String sessionId = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
@@ -116,12 +108,11 @@ public class BookingServiceImpl implements BookingService {
                 .sessionId(sessionId)
                 .user(user)
                 .show(show)
-                .seats(seats)
+                .seats(new ArrayList<>(seats))
                 .status(SessionStatus.ACTIVE)
                 .createdAt(now)
                 .expiresAt(expiresAt)
                 .build();
-
         sessionRepository.save(session);
 
 
@@ -129,7 +120,6 @@ public class BookingServiceImpl implements BookingService {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
-                // Check if the session is still active.
                 Optional<UserBookingSession> sessionOpt = sessionRepository.findById(sessionId);
                 if (sessionOpt.isPresent() && sessionOpt.get().getStatus() == SessionStatus.ACTIVE) {
                     cancelSession(sessionOpt.get());
@@ -139,40 +129,6 @@ public class BookingServiceImpl implements BookingService {
 
         return session;
     }
-
-
-//    @Transactional
-//    public synchronized Booking bookTickets(String userId, String showId, List<String> seatIds, PaymentType payment) throws Exception {
-//        synchronized (this) {
-//            Optional<User> userOpt = userRepository.findById(userId);
-//            Optional<Show> showOpt = showRepository.findById(showId);
-//            List<Seat> seats = seatRepository.findAllById(seatIds);
-//
-//            if (userOpt.isEmpty() || showOpt.isEmpty()) throw new RuntimeException("Invalid booking details");
-//
-//            User user = userOpt.get();
-//            Show show = showOpt.get();
-//
-//            checkValidity(showId, user, seats);
-//
-//            seats.forEach(seat -> seat.setStatus(SeatStatus.BOOKED));
-//            seatRepository.saveAll(seats);
-//
-//            double amount = seats.stream().mapToDouble(Seat::getPrice).sum();
-//            paymentManager.pay(payment, amount);
-//
-//
-//            Booking booking = Booking.builder()
-//                    .user(user)
-//                    .show(show)
-//                    .seats(seats)
-//                    .payment(payment)
-//                    .status(BookingStatus.BOOKED)
-//                    .build();
-//
-//            return bookingRepository.save(booking);
-//        }
-//    }
 
 
     @Transactional
@@ -186,14 +142,12 @@ public class BookingServiceImpl implements BookingService {
             throw new RuntimeException("Session is no longer active.");
         }
 
-        double amount = session.getSeats().stream().mapToDouble(Seat::getPrice).sum();
-
+        double amount = session.getSeats().stream()
+                .mapToDouble(ShowSeat::getPrice)
+                .sum();
 
         boolean paymentSuccess = paymentManager.pay(payment, amount);
-
-
         if (!paymentSuccess) {
-
             releaseSeats(session);
             session.setStatus(SessionStatus.CANCELLED);
             sessionRepository.save(session);
@@ -203,16 +157,15 @@ public class BookingServiceImpl implements BookingService {
 
         session.getSeats().forEach(seat -> {
             seat.setStatus(SeatStatus.BOOKED);
-            seatRepository.save(seat);
+            showSeatRepository.save(seat);
         });
-
         session.setStatus(SessionStatus.COMPLETED);
         sessionRepository.save(session);
 
         Booking booking = Booking.builder()
                 .user(session.getUser())
                 .show(session.getShow())
-                .seats(session.getSeats())
+                .seats(session.getSeats().stream().collect(Collectors.toList()))
                 .payment(payment)
                 .status(BookingStatus.BOOKED)
                 .build();
@@ -227,12 +180,15 @@ public class BookingServiceImpl implements BookingService {
 
         Booking booking = bookingOpt.get();
         Show show = booking.getShow();
-        List<Seat> seats = booking.getSeats();
+        List<ShowSeat> seats = booking.getSeats();
 
         boolean wasFull = getAvailableSeats(show.getId()).isEmpty();
 
-        seats.forEach(seat -> seat.setStatus(SeatStatus.AVAILABLE));
-        seatRepository.saveAll(seats);
+        // Mark seats as AVAILABLE.
+        seats.forEach(seat -> {
+            seat.setStatus(SeatStatus.AVAILABLE);
+            showSeatRepository.save(seat);
+        });
 
         booking.setStatus(BookingStatus.NOT_BOOKED);
         bookingRepository.save(booking);
@@ -255,7 +211,7 @@ public class BookingServiceImpl implements BookingService {
     private void releaseSeats(UserBookingSession session) {
         session.getSeats().forEach(seat -> {
             seat.setStatus(SeatStatus.AVAILABLE);
-            seatRepository.save(seat);
+            showSeatRepository.save(seat);
         });
     }
 
@@ -264,7 +220,6 @@ public class BookingServiceImpl implements BookingService {
         if (userOpt.isEmpty()) {
             throw new RuntimeException("User not found");
         }
-
         return bookingRepository.findByUser(userOpt.get());
     }
 }

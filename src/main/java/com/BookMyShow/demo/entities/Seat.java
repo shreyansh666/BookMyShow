@@ -19,7 +19,7 @@ public class Seat {
     private SeatStatus status;
     private SeatType seatType;
     private double price;
-    private String ShowId;
+
 
     @Version
     private Integer version;

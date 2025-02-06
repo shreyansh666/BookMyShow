@@ -13,4 +13,18 @@ public class MongoConfig {
     MongoTransactionManager transactionManager(MongoDatabaseFactory dbFactory) {
         return new MongoTransactionManager(dbFactory);
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

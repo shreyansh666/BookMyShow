@@ -1,6 +1,7 @@
 package com.BookMyShow.demo.service;
 
 
+import com.BookMyShow.demo.dto.ScreenSeatTemplateConfigRequest;
 import com.BookMyShow.demo.dto.ShowRequest;
 import com.BookMyShow.demo.dto.TheaterRequest;
 import com.BookMyShow.demo.entities.City;
@@ -26,7 +27,7 @@ public interface AdminService {
     void deleteTheater(String theaterId);
 
 
-    Screen addScreen(String theaterId, String name, ScreenType type);
+    Screen addScreen(String theaterId, String name, ScreenType type, ScreenSeatTemplateConfigRequest config);
     Screen updateScreen(String screenId, String name, ScreenType type);
     List<Screen> getScreens(String theaterId);
     public void deleteScreen(String screenId);
