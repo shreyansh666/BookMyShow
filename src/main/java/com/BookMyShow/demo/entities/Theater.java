@@ -23,6 +23,7 @@ public class Theater {
     private String address;
     private String cityId;
 
+
     @DBRef
     private List<Screen> screens;
 

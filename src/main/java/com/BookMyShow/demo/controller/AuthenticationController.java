@@ -51,8 +51,6 @@ public class AuthenticationController {
     @Autowired
     private OTPServiceImpl otpService;
 
-
-
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) throws Exception {
 

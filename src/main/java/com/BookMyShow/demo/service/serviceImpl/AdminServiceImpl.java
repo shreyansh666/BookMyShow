@@ -56,7 +56,7 @@ public class AdminServiceImpl implements AdminService {
     public City addCity(String cityName) {
         City city = City.builder()
                 .name(cityName)
-                .theaters(new ArrayList<>())
+//                .theaters(new ArrayList<>())
                 .build();
 
         cityRepository.save(city);
@@ -78,7 +78,10 @@ public class AdminServiceImpl implements AdminService {
         Optional<City> city = cityRepository.findByName(request.getCity());
         if (!city.isPresent()) throw new ResourceNotFoundException("City not present");
 
-        boolean exists = city.get().getTheaters().stream()
+
+        List<Theater> theaters =  theaterRepository.findByCityId(city.get().getId());
+
+        boolean exists = theaters.stream()
                 .anyMatch(theater ->
                         theater.getName().equalsIgnoreCase(request.getName())
                                 && theater.getAddress().equalsIgnoreCase(address)
@@ -93,9 +96,12 @@ public class AdminServiceImpl implements AdminService {
                 .screens(new ArrayList<>())
                 .build();
 
-        Theater savedTheater = theaterRepository.save(theater);
-        city.get().getTheaters().add(savedTheater);
+        Theater savedTheater  = theaterRepository.save(theater);
+//        city.get().getTheaters().add(savedTheater);
         cityRepository.save(city.get());
+
+
+
 
         return savedTheater;
     }
@@ -105,7 +111,6 @@ public class AdminServiceImpl implements AdminService {
         Theater theater = theaterRepository.findById(theaterId)
                 .orElseThrow(() -> new RuntimeException("Theater not found"));
 
-        // Create SeatTemplate objects from the provided configuration
         List<SeatTemplate> seatTemplates = createSeatTemplates(config);
 
         Screen screen = Screen.builder()
@@ -150,7 +155,7 @@ public class AdminServiceImpl implements AdminService {
         Movie movie = movieRepository.findById(request.getMovieId())
                 .orElseThrow(() -> new RuntimeException("Movie not found"));
 
-        // Create the Show entity
+
         Show show = Show.builder()
                 .movie(movie)
                 .ScreenId(screenId)
@@ -159,7 +164,6 @@ public class AdminServiceImpl implements AdminService {
                 .build();
         Show savedShow = showRepository.save(show);
 
-        // Create ShowSeat entries based on the seat templates of the screen.
         List<ShowSeat> showSeats = createShowSeats(screen, request.getSeatConfig(), savedShow.getId());
         showSeatRepository.saveAll(showSeats);
 
@@ -169,8 +173,7 @@ public class AdminServiceImpl implements AdminService {
     private List<ShowSeat> createShowSeats(Screen screen, ScreenSeatTemplateConfigRequest config, String showId) {
         List<ShowSeat> showSeats = new ArrayList<>();
         for (SeatTemplate seatTemplate : screen.getSeats()) {
-            double price = seatTemplate.getDefaultPrice(); // default price from template
-            // Adjust price based on seat type if provided in configuration
+            double price = seatTemplate.getDefaultPrice();
             if (seatTemplate.getSeatType() == SeatType.REGULAR && config.getRegularPrice() > 0) {
                 price = config.getRegularPrice();
             } else if (seatTemplate.getSeatType() == SeatType.GOLD && config.getVipPrice() > 0) {
@@ -199,7 +202,6 @@ public class AdminServiceImpl implements AdminService {
         existingShow.setMovie(movie);
         existingShow.setStartTime(request.getStartTime());
         existingShow.setEndTime(request.getEndTime());
-        // Optionally, update ShowSeat entries if needed
         return showRepository.save(existingShow);
     }
 
@@ -214,7 +216,7 @@ public class AdminServiceImpl implements AdminService {
 
     public List<Theater> getTheaters(String cityId) throws ResourceNotFoundException {
         Optional<City> city = cityRepository.findById(cityId);
-        if (city.isPresent()) return city.get().getTheaters();
+        if (city.isPresent()) return theaterRepository.findByCityId(city.get().getId());
         throw new ResourceNotFoundException("City with this id does not exist");
     }
 
@@ -238,17 +240,15 @@ public class AdminServiceImpl implements AdminService {
         City city = cityRepository.findById(cityId)
                 .orElseThrow(() -> new RuntimeException("City not found with ID: " + cityId));
 
-        List<Theater> theaters = city.getTheaters();
+        List<Theater> theaters =  theaterRepository.findByCityId(city.getId());
         for (Theater theater : theaters) {
             List<Screen> screens = theater.getScreens();
             for (Screen screen : screens) {
-                // Delete ShowSeats for each Show in this Screen
                 List<Show> shows = showRepository.findByScreenId(screen.getId());
                 for (Show show : shows) {
                     showSeatRepository.deleteByShowId(show.getId());
                 }
                 showRepository.deleteByScreenId(screen.getId());
-                // Delete the SeatTemplates associated with the Screen
                 if (screen.getSeats() != null && !screen.getSeats().isEmpty()) {
                     seatTemplateRepository.deleteAll(screen.getSeats());
                 }
