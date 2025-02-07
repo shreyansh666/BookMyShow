@@ -10,11 +10,13 @@ import com.BookMyShow.demo.strategy.NotificationStrategy.strategyImpl.Notificati
 import com.BookMyShow.demo.util.CommonUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+
 
 import static org.springframework.http.ResponseEntity.ok;
 
@@ -26,6 +28,11 @@ public class BookingController {
 
     @Autowired
     private final BookingService bookingService;
+
+    @Autowired
+    private static RedisTemplate redisTemplate;
+
+
 
     @Autowired
     private final NotificationManager notificationManager;
@@ -71,6 +78,14 @@ public class BookingController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Error: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/cache")
+    public ResponseEntity<String> cancelBooking() {
+        redisTemplate.opsForValue().set("email", "shrey@gmail.com");
+        Object email = redisTemplate.opsForValue().get("email");
+        System.out.println(email);
+        return ResponseEntity.ok("ok.");
     }
 
     @PostMapping("/cancel")
