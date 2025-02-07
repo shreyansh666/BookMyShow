@@ -19,10 +19,13 @@ import java.util.List;
 @Document(collection = "city")
 
 public class City {
+
     @Id
     private String id;
     private String name;
 
-    @DBRef
-    private List<Theater> theaters;
+//    @DBRef
+//    private List<Theater> theaters;
+
+
 }

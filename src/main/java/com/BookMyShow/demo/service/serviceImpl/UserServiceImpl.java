@@ -2,16 +2,14 @@ package com.BookMyShow.demo.service.serviceImpl;
 
 import com.BookMyShow.demo.dto.EmailRequest;
 import com.BookMyShow.demo.dto.PasswordChangeRequest;
-import com.BookMyShow.demo.entities.City;
-import com.BookMyShow.demo.entities.Movie;
-import com.BookMyShow.demo.entities.Show;
-import com.BookMyShow.demo.entities.User;
+import com.BookMyShow.demo.entities.*;
 import com.BookMyShow.demo.enums.NotificationType;
 import com.BookMyShow.demo.enums.UserRole;
 import com.BookMyShow.demo.exception.ResourceNotFoundException;
 import com.BookMyShow.demo.exception.UnauthorizedException;
 import com.BookMyShow.demo.repository.CityRepository;
 import com.BookMyShow.demo.repository.ShowRepository;
+import com.BookMyShow.demo.repository.TheaterRepository;
 import com.BookMyShow.demo.repository.UserRepository;
 import com.BookMyShow.demo.security.services.UserDetailsImpl;
 import com.BookMyShow.demo.service.UserService;
@@ -37,6 +35,9 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private final BCryptPasswordEncoder passwordEncoder;
+
+    @Autowired
+    private final TheaterRepository theaterRepository;
 
     @Autowired
     private final UserRepository userRepo;
@@ -203,7 +204,8 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() ->  new RuntimeException("City not found"));
 
         Set<Movie> movies = new HashSet<>();
-        city.getTheaters().forEach(theater -> {
+        List<Theater> theaters =  theaterRepository.findByCityId(city.getId());
+        theaters.forEach(theater -> {
             theater.getScreens().forEach(screen -> {
                 List<Show> shows = showRepository.findByScreenId(screen.getId());
                 shows.forEach(show -> movies.add(show.getMovie()));
