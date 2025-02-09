@@ -26,7 +26,6 @@ public class Booking {
     @DBRef
     private List<ShowSeat> seats;
 
-
     private PaymentType payment;
 
     private BookingStatus status;
